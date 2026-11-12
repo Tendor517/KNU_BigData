@@ -1,0 +1,3 @@
+Loaded: 1976 rows, 66 columns
+Dropped: y_heatwave_alarm_extended, y_heatwave_alarm
+Rows: 1976, columns: 64

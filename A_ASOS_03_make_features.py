@@ -7,8 +7,7 @@ Output:  ASOS_03_Daegu_daily_features.csv + text report ASOS_03_Daegu_daily_feat
 Task: on day D (using data up to 23:00 of day D) predict day D+1:
   - daily maximum feels-like temperature (regression)
   - tropical night (night minimum AIR temperature >= 25 degC)
-  - heat wave advisory, alarm, extended alarm (KMA, feels-like based) and
-    advisory + night (night minimum air temperature >= 26 degC, the Daegu regional threshold)
+  - heat wave advisory, alarm, extended alarm (KMA, feels-like based)
 
 Steps:
   1. load, check the hourly axis
@@ -42,7 +41,6 @@ RUN_ALARM = 2                # alarm: at least this many consecutive days
 RUN_ALARM_EXTENDED = 3       # extended alarm: 2 days + the next day, all >= FEELS_ALARM
 # Night minimum is always the AIR temperature (not feels-like)
 TROPICAL_NIGHT_THRESHOLD = 25.0   # tropical night: night minimum air temperature >= 25
-ADVISORY_NIGHT_THRESHOLD = 26.0   # advisory + night: Daegu regional threshold (KMA table)
 
 # Night window 18:01-09:00 = hourly observations 19:00 ... 09:00 (15 values)
 NIGHT_START_HOUR = 19
@@ -207,16 +205,11 @@ def build_targets(daily: pd.DataFrame, nights: pd.DataFrame) -> pd.DataFrame:
     t["heatwave_alarm"] = as_flag(alarm, tmax)
     t["heatwave_alarm_extended"] = as_flag(alarm_ext, tmax)
 
-    warm_night = night_min >= ADVISORY_NIGHT_THRESHOLD
-    valid = tmax.where(night_min.notna())
-    t["heatwave_advisory_night"] = as_flag(adv & warm_night, valid)
-
     log("\n5. TARGETS (computed on the full continuous series, same-day version, before the shift)")
     log(f"   Tropical night: night minimum AIR temperature >= {TROPICAL_NIGHT_THRESHOLD:g}")
     log(f"   Advisory: feels-like Tmax >= {FEELS_ADVISORY:g} for >= {RUN_ADVISORY} consecutive days")
     log(f"   Alarm: feels-like Tmax >= {FEELS_ALARM:g} for >= {RUN_ALARM} consecutive days")
     log(f"   Extended alarm: feels-like Tmax >= {FEELS_ALARM:g} for >= {RUN_ALARM_EXTENDED} consecutive days")
-    log(f"   Advisory + night: advisory and night minimum air temperature >= {ADVISORY_NIGHT_THRESHOLD:g}")
     log("   Positive days per month, whole series (use it to choose the season):")
     months = pd.DataFrame({c: t[c].groupby(t.index.month).sum() for c in t.columns if c != "tmax_feels"})
     for line in months.fillna(0).astype(int).to_string().splitlines():
@@ -225,7 +218,7 @@ def build_targets(daily: pd.DataFrame, nights: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------- STEP 6 ----------
-def build_features(daily: pd.DataFrame, nights: pd.DataFrame, targets: pd.DataFrame) -> pd.DataFrame:
+def build_features(daily: pd.DataFrame, nights: pd.DataFrame) -> pd.DataFrame:
     f = daily.copy()
 
     # lags (day D uses D-1, D-2, ...)
@@ -251,7 +244,6 @@ def build_features(daily: pd.DataFrame, nights: pd.DataFrame, targets: pd.DataFr
     # night features use the PREVIOUS night (D-1 evening ... D morning): the night that
     # starts on day D ends at 09:00 of D+1, which is not known at the end of day D
     f["night_min_air_prev"] = nights["night_min_air"].shift(1)
-    f["tropical_night_streak_prev"] = streak(targets["tropical_night"] == 1.0).shift(1)
 
     # season (day of year as a circle)
     doy = f.index.dayofyear
@@ -263,7 +255,7 @@ def build_features(daily: pd.DataFrame, nights: pd.DataFrame, targets: pd.DataFr
     log(f"   Rolling means {ROLLING} (min valid days {ROLLING_MIN_PERIODS}) for: "
         "feels_like_max, temperature_mean, solar_radiation_sum")
     log("   Streak counters: hot33_streak, hot35_streak (up to and including D); "
-        "tropical-night streaks and night minima from the previous night (D-1)")
+        "night minimum air temperature from the previous night (D-1)")
     log(f"   Total feature columns: {len(f.columns)}")
     return f
 
@@ -276,7 +268,6 @@ def assemble(features: pd.DataFrame, targets: pd.DataFrame) -> pd.DataFrame:
         "heatwave_advisory": "y_heatwave_advisory",
         "heatwave_alarm": "y_heatwave_alarm",
         "heatwave_alarm_extended": "y_heatwave_alarm_extended",
-        "heatwave_advisory_night": "y_heatwave_advisory_night",
     }
     # the row of day D describes day D+1
     y = targets[list(names)].shift(-1).rename(columns=names)
@@ -343,7 +334,7 @@ def main() -> None:
     daily = build_daily(hourly)
     nights = build_nights(hourly, daily.index)
     targets = build_targets(daily, nights)
-    features = build_features(daily, nights, targets)
+    features = build_features(daily, nights)
     df = assemble(features, targets)
     report_result(df)
 
