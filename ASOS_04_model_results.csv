@@ -1,0 +1,13 @@
+target,split,model,positive_share_%,precision,recall,F1,PR_AUC,Brier,TP,FP,FN,TN,threshold,MAE,RMSE,bias
+y_tropical_night,val,persistence,16.4,0.62,0.62,0.62,,0.125,31,19,19,235,,,,
+y_tropical_night,val,random_forest,16.4,0.7111,0.64,0.6737,0.6848,0.0845,32,13,18,241,0.55,,,
+y_heatwave_advisory,val,persistence,15.1,0.7451,0.8261,0.7835,,0.0691,38,13,8,245,,,,
+y_heatwave_advisory,val,random_forest,15.1,0.7778,0.913,0.84,0.909,0.0427,42,12,4,246,0.31,,,
+y_tmax_feels,val,persistence,,,,,,,,,,,,1.6329,2.1579,-0.0488
+y_tmax_feels,val,random_forest,,,,,,,,,,,,1.4538,1.8503,-0.1876
+y_tropical_night,test,persistence,19.7,0.6,0.6,0.6,,0.1579,36,24,24,220,,,,
+y_tropical_night,test,random_forest,19.7,0.6875,0.55,0.6111,0.7552,0.0845,33,15,27,229,0.55,,,
+y_heatwave_advisory,test,persistence,21.4,0.7826,0.8308,0.806,,0.0855,54,15,11,224,,,,
+y_heatwave_advisory,test,random_forest,21.4,0.7671,0.8615,0.8116,0.8145,0.0697,56,17,9,222,0.31,,,
+y_tmax_feels,test,persistence,,,,,,,,,,,,1.6383,2.2099,-0.0332
+y_tmax_feels,test,random_forest,,,,,,,,,,,,1.4815,1.9609,-0.1538
