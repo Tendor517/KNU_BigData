@@ -1,0 +1,141 @@
+1. LOADING AND SPLIT
+   Rows: 1976, feature columns: 59, targets: y_tropical_night, y_heatwave_advisory, y_tmax_feels
+   Range: 2014-05-01 -> 2026-09-29
+   Rows per split: train: 1368, val: 304, test: 304
+   Positive share per split (%):
+              y_tropical_night  y_heatwave_advisory
+       split                                       
+       train              12.6                  9.3
+       val                16.4                 15.1
+       test               19.7                 21.4
+
+2. PERSISTENCE BASELINE (no training)
+   y_tmax_feels: tomorrow = today's feels_like_max
+   y_heatwave_advisory: 1 if today's feels_like_max >= 33
+   y_tropical_night: 1 if night_min_air_prev >= 25
+
+3. RANDOM FOREST SETTINGS (500 trees, expanding window by year inside train)
+   y_tropical_night: mean PR-AUC over check years 2017-2022
+                                     mean_score
+       min_samples_leaf class_weight           
+       5                None              0.683
+                        balanced           0.66
+       10               None              0.683
+                        balanced          0.688
+       20               None              0.701
+                        balanced            0.7
+   -> chosen: {'min_samples_leaf': 20, 'class_weight': None}
+   y_heatwave_advisory: mean PR-AUC over check years 2017-2022
+                                     mean_score
+       min_samples_leaf class_weight           
+       5                None              0.802
+                        balanced          0.758
+       10               None              0.799
+                        balanced          0.779
+       20               None              0.785
+                        balanced          0.778
+   -> chosen: {'min_samples_leaf': 5, 'class_weight': None}
+   y_tmax_feels: mean -MAE over check years 2017-2022
+                                     mean_score
+       min_samples_leaf max_features           
+       5                sqrt             -1.557
+                        1.0              -1.503
+       10               sqrt             -1.567
+                        1.0              -1.513
+       20               sqrt             -1.596
+                        1.0               -1.53
+   -> chosen: {'min_samples_leaf': 5, 'max_features': 1.0}
+
+4. VAL: forest fitted on train, threshold chosen on val, compared with persistence
+   y_tropical_night (threshold 0.55)
+                      positive_share_%  precision  recall     F1  PR_AUC  Brier  TP  FP  FN   TN
+       model                                                                                    
+       persistence                16.4      0.620    0.62  0.620     NaN  0.125  31  19  19  235
+       random_forest              16.4      0.711    0.64  0.674   0.685  0.085  32  13  18  241
+   y_heatwave_advisory (threshold 0.31)
+                      positive_share_%  precision  recall     F1  PR_AUC  Brier  TP  FP  FN   TN
+       model                                                                                    
+       persistence                15.1      0.745   0.826  0.784     NaN  0.069  38  13   8  245
+       random_forest              15.1      0.778   0.913  0.840   0.909  0.043  42  12   4  246
+   y_tmax_feels
+                        MAE   RMSE   bias
+       model                             
+       persistence    1.633  2.158 -0.049
+       random_forest  1.454  1.850 -0.188
+       Random Forest MAE is 11.0% smaller than persistence
+
+5. TEST (used once): forest refitted on train + val with the frozen settings and threshold
+   y_tropical_night
+                      positive_share_%  precision  recall     F1  PR_AUC  Brier  TP  FP  FN   TN
+       model                                                                                    
+       persistence                19.7      0.600    0.60  0.600     NaN  0.158  36  24  24  220
+       random_forest              19.7      0.688    0.55  0.611   0.755  0.084  33  15  27  229
+       Random Forest errors on test per month:
+              real_yes  missed_FN  false_alarm_FP
+       month                                     
+       5             0          0               0
+       6             4          3               0
+       7            28          8               5
+       8            28         16              10
+       9             0          0               0
+   y_heatwave_advisory
+                      positive_share_%  precision  recall     F1  PR_AUC  Brier  TP  FP  FN   TN
+       model                                                                                    
+       persistence                21.4      0.783   0.831  0.806     NaN  0.086  54  15  11  224
+       random_forest              21.4      0.767   0.862  0.812   0.815  0.070  56  17   9  222
+       Random Forest errors on test per month:
+              real_yes  missed_FN  false_alarm_FP
+       month                                     
+       5             0          0               0
+       6             4          2               0
+       7            32          3               9
+       8            29          4               8
+       9             0          0               0
+   y_tmax_feels
+                        MAE   RMSE   bias
+       model                             
+       persistence    1.638  2.210 -0.033
+       random_forest  1.482  1.961 -0.154
+       Random Forest MAE is 9.6% smaller than persistence
+
+6. FEATURE IMPORTANCE (permutation on val, forest fitted on train, top 10)
+   y_tropical_night
+       night_min_air_prev               0.0218
+       temperature_min                  0.0193
+       feels_like_min                   0.0118
+       doy_cos                          0.0106
+       dew_point_min                    0.0092
+       feels_like_min_lag2              0.0084
+       feels_like_max_lag1              0.0071
+       temperature_mean_roll3           0.0070
+       ground_temperature_mean          0.0063
+       wind_u                           0.0062
+   y_heatwave_advisory
+       feels_like_mean                  0.0076
+       temperature_max                  0.0041
+       ground_temperature_mean          0.0038
+       temperature_range                0.0034
+       feels_like_max_hour              0.0023
+       doy_sin                          0.0023
+       doy_cos                          0.0022
+       solar_radiation_sum              0.0020
+       dew_point_min                    0.0020
+       relative_humidity_mean_lag7      0.0018
+   y_tmax_feels
+       feels_like_mean                  1.9439
+       feels_like_max                   0.0401
+       feels_like_max_hour              0.0191
+       feels_like_min_lag2              0.0187
+       doy_cos                          0.0166
+       night_min_air_prev               0.0108
+       sunshine_sum                     0.0096
+       doy_sin                          0.0068
+       feels_like_min_lag1              0.0044
+       solar_radiation_sum              0.0030
+
+7. NOTES
+   - Heat-wave labels are runs of days, so the label of D+1 also depends on D+2 (Stage 3).
+   - Positive shares grow from train to test (hotter recent summers); compare models on the same split.
+   - A Random Forest cannot predict values above those seen in training (leaves store averages).
+   - Correlated features (e.g. feels_like_mean / feels_like_max / lags) share their importance.
+   - The test set is small (2 summers), so the test numbers are noisy.
